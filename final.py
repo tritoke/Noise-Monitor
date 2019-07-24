@@ -1,16 +1,14 @@
-from csv import writer
+#!/usr/bin/env python3
+from csv import reader
 from datetime import datetime
-from email.mime.application import MIMEApplication
-from email.mime.multipart import MIMEMultipart
-from email.utils import formatdate
 from sys import argv
 import matplotlib.pyplot as plt
 import numpy as np
-import smtplib
 import sounddevice as sd
 import time
 
 
+PREFIX = "/opt/noise-monitor"
 SAMPLERATE = 44100
 
 
@@ -25,6 +23,10 @@ def sound_max(seconds):
     sd.wait(seconds)
     mx = np.max(myrecording)
     return mx
+
+
+def moving_average(x, w):
+    return np.convolve(x, np.ones(w), 'valid') / w
 
 
 # parse command line arguments
@@ -53,56 +55,46 @@ while datetime.now().hour < end_hour or datetime.now().minute < end_minute:
     ys.append(data_point)
     print(f"{t}: {data_point}")
 
-
-# graph data and save to a PNG
-print("graphing data")
-
-plt.plot(xs, ys)
-plt.xlabel("time")
-plt.ylabel("max points")
-plt.ylim(0, 1)
-plt.grid(True)
-
-plt.savefig("/tmp/graph.png")
-
+# use this file as hacky mutex so email thing sends all the graphs and the csv at once
+# just creates a file and we remove it after writing all the graphs
+with open("finished", "w") as f:
+pass
 
 # save data to a csv file
 print("saving raw data to a CSV")
-with open("/tmp/data.csv", "w", newline="") as f:
+with open(f"{PREFIX}/data.csv", "w", newline="") as f:
     datawriter = writer(f)
     data = zip(["Time"] + xs, ["Noise"] + ys)
     datawriter.writerows(data)
 
 
-# send email to google group
-print("Sending email to google group")
-s = smtplib.SMTP("smtp.gmail.com", 587)
-s.starttls()
-s.ehlo()
+with open(f"{PREFIX}/data.csv", newline="") as f:
+    data = np.array(list(reader(f))[1:],dtype="float64")
+    xs,ys = data.transpose()
 
-username = "noisemonitor123@gmail.com"
-password = "NoiseMonitor123"
-s.login(username, password)
+# graph data and save to a PNG
+print("graphing data")
 
+plt.plot(xs,ys)
+plt.xlabel("Time")
+plt.ylabel("Noise")
+plt.ylim(0, 1)
+plt.grid(True)
 
-sendto = ["noisemonitor@googlegroups.com"]
+plt.savefig(f"{PREFIX}/graph.png")
 
-msg = MIMEMultipart()
-msg["From"] = username
-msg["To"] = sendto[0]
-msg["Date"] = formatdate(localtime=True)
+# this clears the figure but not the axes as they don't change
+plt.clf()
 
-current_date = datetime.strftime(datetime.now(), "%d/%m/%Y")
-msg["Subject"] = f"Graph for {current_date}"
+m_xs = moving_average(xs, 120)
+m_ys = moving_average(ys, 120)
 
-# add attachments
-files = ["/tmp/graph.png", "/tmp/data.csv"]
-for f in files:
-    with open(f, "rb") as attachment:
-        part = MIMEApplication(attachment.read(), Name=f)
+plt.plot(m_xs,m_ys)
+plt.xlabel("Time")
+plt.ylabel("Noise")
+plt.ylim(0, 1)
+plt.grid(True)
 
-    part["Content-Disposition"] = f"attachment; filename={f}"
-    msg.attach(part)
+plt.savefig(f"{PREFIX}/moving.png")
 
-s.sendmail(username, sendto, msg.as_string())
-s.quit()
+os.remove(f"{PREFIX}/finished")
