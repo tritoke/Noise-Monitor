@@ -13,9 +13,24 @@ PREFIX = "/opt/noise-monitor"
 if os.path.isfile(f"{PREFIX}/finished"):
     exit()
 
-files = [f"{PREFIX}/{i}" for i in os.listdir(PREFIX) if i.endswith(".png") or i.endswith(".csv")]
+files = [
+    f"{PREFIX}/{i}"
+    for i in os.listdir(PREFIX)
+    if i.endswith(".png") or i.endswith(".csv")
+]
 if files == []:
     exit()
+
+while True:
+    prev_files = files
+    sleep(30)
+    files = [
+        f"{PREFIX}/{i}"
+        for i in os.listdir(PREFIX)
+        if i.endswith(".png") or i.endswith(".csv")
+    ]
+    if files == prev_files:
+        break
 
 # send email to google group
 
@@ -46,6 +61,5 @@ for f in files:
     part["Content-Disposition"] = f"attachment; filename={f}"
     msg.attach(part)
 
-print(msg.as_string())
 s.sendmail(username, sendto, msg.as_string())
 s.quit()

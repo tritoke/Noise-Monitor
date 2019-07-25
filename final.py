@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-from csv import reader
+from csv import reader, writer
 from datetime import datetime
 from sys import argv
 import matplotlib.pyplot as plt
 import numpy as np
 import sounddevice as sd
 import time
-
 
 PREFIX = "/opt/noise-monitor"
 SAMPLERATE = 44100
@@ -26,7 +25,7 @@ def sound_max(seconds):
 
 
 def moving_average(x, w):
-    return np.convolve(x, np.ones(w), 'valid') / w
+    return np.convolve(x, np.ones(w), "valid") / w
 
 
 # parse command line arguments
@@ -44,7 +43,6 @@ else:  # hour and minute specified
 xs, ys = [], []
 
 print(f"Gathering data until {end_hour:02d}:{end_minute:02d}")
-
 while datetime.now().hour < end_hour or datetime.now().minute < end_minute:
     # Get maximum sound in 10 seconds
     data_point = sound_max(10)
@@ -55,11 +53,6 @@ while datetime.now().hour < end_hour or datetime.now().minute < end_minute:
     ys.append(data_point)
     print(f"{t}: {data_point}")
 
-# use this file as hacky mutex so email thing sends all the graphs and the csv at once
-# just creates a file and we remove it after writing all the graphs
-with open("finished", "w") as f:
-pass
-
 # save data to a csv file
 print("saving raw data to a CSV")
 with open(f"{PREFIX}/data.csv", "w", newline="") as f:
@@ -68,14 +61,10 @@ with open(f"{PREFIX}/data.csv", "w", newline="") as f:
     datawriter.writerows(data)
 
 
-with open(f"{PREFIX}/data.csv", newline="") as f:
-    data = np.array(list(reader(f))[1:],dtype="float64")
-    xs,ys = data.transpose()
-
 # graph data and save to a PNG
 print("graphing data")
 
-plt.plot(xs,ys)
+plt.plot(xs, ys)
 plt.xlabel("Time")
 plt.ylabel("Noise")
 plt.ylim(0, 1)
@@ -83,18 +72,30 @@ plt.grid(True)
 
 plt.savefig(f"{PREFIX}/graph.png")
 
-# this clears the figure but not the axes as they don't change
+# clear plot
 plt.clf()
 
-m_xs = moving_average(xs, 120)
-m_ys = moving_average(ys, 120)
+m5_xs = moving_average(xs, 30)
+m5_ys = moving_average(ys, 30)
 
-plt.plot(m_xs,m_ys)
+plt.plot(m5_xs, m5_ys)
 plt.xlabel("Time")
 plt.ylabel("Noise")
 plt.ylim(0, 1)
 plt.grid(True)
 
-plt.savefig(f"{PREFIX}/moving.png")
+plt.savefig(f"{PREFIX}/moving-5.png")
 
-os.remove(f"{PREFIX}/finished")
+# clear plot
+plt.clf()
+
+m20_xs = moving_average(xs, 120)
+m20_ys = moving_average(ys, 120)
+
+plt.plot(m20_xs, m20_ys)
+plt.xlabel("Time")
+plt.ylabel("Noise")
+plt.ylim(0, 1)
+plt.grid(True)
+
+plt.savefig(f"{PREFIX}/moving-20.png")
