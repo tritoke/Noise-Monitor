@@ -56,7 +56,7 @@ msg["Subject"] = f"Graph for {current_date}"
 
 for f in files:
     with open(f, "rb") as attachment:
-        part = MIMEApplication(attachment.read(), Name=f)
+        part = MIMEApplication(attachment.read(), Name=os.path.basename(f))
 
     part["Content-Disposition"] = f"attachment; filename={f}"
     msg.attach(part)
