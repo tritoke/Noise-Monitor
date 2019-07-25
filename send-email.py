@@ -5,7 +5,7 @@ from email.mime.multipart import MIMEMultipart
 from email.utils import formatdate
 import os
 import smtplib
-
+from time import sleep
 
 PREFIX = "/opt/noise-monitor"
 
