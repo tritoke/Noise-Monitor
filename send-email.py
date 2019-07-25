@@ -55,11 +55,15 @@ msg["Subject"] = f"Graph for {current_date}"
 # add attachments
 
 for f in files:
+    name = os.path.basename(f)
     with open(f, "rb") as attachment:
-        part = MIMEApplication(attachment.read(), Name=os.path.basename(f))
+        part = MIMEApplication(attachment.read(), Name=name)
 
-    part["Content-Disposition"] = f"attachment; filename={f}"
+    part["Content-Disposition"] = f"attachment; filename={name}"
     msg.attach(part)
 
 s.sendmail(username, sendto, msg.as_string())
 s.quit()
+
+for f in files:
+    os.remove(f)
