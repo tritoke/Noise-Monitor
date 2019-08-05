@@ -10,7 +10,7 @@ from time import sleep
 PREFIX = "/opt/noise-monitor"
 
 
-if os.path.isfile(f"{PREFIX}/finished"):
+if not os.path.isfile(f"{PREFIX}/finished"):
     exit()
 
 files = [
@@ -18,19 +18,9 @@ files = [
     for i in os.listdir(PREFIX)
     if i.endswith(".png") or i.endswith(".csv")
 ]
+
 if files == []:
     exit()
-
-while True:
-    prev_files = files
-    sleep(30)
-    files = [
-        f"{PREFIX}/{i}"
-        for i in os.listdir(PREFIX)
-        if i.endswith(".png") or i.endswith(".csv")
-    ]
-    if files == prev_files:
-        break
 
 # send email to google group
 
@@ -49,7 +39,7 @@ msg["From"] = username
 msg["To"] = sendto[0]
 msg["Date"] = formatdate(localtime=True)
 
-current_date = datetime.strftime(datetime.now(), "%d/%m/%Y")
+current_date = datetime.strftime(datetime.now(), "%d/%m/%y")
 msg["Subject"] = f"Graph for {current_date}"
 
 # add attachments
@@ -67,3 +57,6 @@ s.quit()
 
 for f in files:
     os.remove(f)
+
+
+os.remove(f"{PREFIX}/finished")
