@@ -99,10 +99,10 @@ plt.savefig(f"{PREFIX}/average-10.png")
 # clear plot
 plt.clf()
 
-rolling_mean = moving_average(means, 3)
+rolling = map(lambda x: rolling_mean(x, 3), (times, means))
 
 plt.title(f"Graph of 30 second moving average for {today}")
-plt.plot(times, rolling_mean)
+plt.plot(*rolling)
 plt.xlabel("Time")
 plt.ylabel("Noise")
 plt.ylim(0, 1)
