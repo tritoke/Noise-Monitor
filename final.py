@@ -11,21 +11,31 @@ PREFIX = "/opt/noise-monitor"
 SAMPLERATE = 44100
 
 
-def sound_max(seconds):
+def get_data(seconds):
     """
-    This function generates data points for the graph.
-    It returns the maximum value of the sound-data which
-    is recorded in the ten second period following the
-    function call.
+    This function gets the necessary data over a ten second period.
+    This includes a ten second average and a maximum over the ten seconds.
+    returns a tuple: (current time in hours since dawn (float),
+                      ten second average (float),
+                      ten second maximum (float))
     """
+    # get sound data
     myrecording = sd.rec(seconds * SAMPLERATE, samplerate=SAMPLERATE, channels=1)
     sd.wait(seconds)
+
+    # compute fractional hours
+    now = datetime.now()
+    t = now.hour + (now.minute / 60) + (now.second / 3600)
+
+    # compute mean and max
     mx = np.max(myrecording)
-    return mx
+    avg = np.mean(myrecording)
+
+    return (t, avg, mx)
 
 
 def moving_average(x, w):
-    return np.convolve(x, np.ones(w), "valid") / w
+    return np.convolve(x, np.ones(w, dtype="double"), "valid") / w
 
 
 # parse command line arguments
@@ -40,62 +50,68 @@ else:  # hour and minute specified
 
 
 # gather data
-xs, ys = [], []
+data = []
 
 print(f"Gathering data until {end_hour:02d}:{end_minute:02d}")
 while datetime.now().hour < end_hour or datetime.now().minute < end_minute:
     # Get maximum sound in 10 seconds
-    data_point = sound_max(10)
+    data.append(get_data(10))
     # Compute t as time as fractions of an hour
-    now = datetime.now()
-    t = now.hour + (now.minute / 60) + (now.second / 3600)
-    xs.append(t)
-    ys.append(data_point)
-    print(f"{t}: {data_point}")
+    print(f"{data[-1][0]}: {data[-1][1:]}")
 
 # save data to a csv file
 print("saving raw data to a CSV")
 with open(f"{PREFIX}/data.csv", "w", newline="") as f:
     datawriter = writer(f)
-    data = zip(["Time"] + xs, ["Noise"] + ys)
+    annotated = [("Time", "Mean", "Max")] + data
     datawriter.writerows(data)
 
 
 # graph data and save to a PNG
 print("graphing data")
 
-plt.plot(xs, ys)
+
+times, means, maxes = np.array(data, "double").transpose()
+
+today = datetime.strftime(datetime.now(), "%d/%m/%y")
+
+plt.title(f"Graph of Maximums for {today}")
+plt.plot(times, maxes)
 plt.xlabel("Time")
 plt.ylabel("Noise")
 plt.ylim(0, 1)
 plt.grid(True)
 
-plt.savefig(f"{PREFIX}/graph.png")
+plt.savefig(f"{PREFIX}/maximum-graph.png")
 
 # clear plot
 plt.clf()
 
-m5_xs = moving_average(xs, 30)
-m5_ys = moving_average(ys, 30)
-
-plt.plot(m5_xs, m5_ys)
+plt.title(f"Graph of 10 second averages for {today}")
+plt.plot(times, means)
 plt.xlabel("Time")
 plt.ylabel("Noise")
 plt.ylim(0, 1)
 plt.grid(True)
 
-plt.savefig(f"{PREFIX}/moving-5.png")
+plt.savefig(f"{PREFIX}/average-10.png")
 
 # clear plot
 plt.clf()
 
-m20_xs = moving_average(xs, 120)
-m20_ys = moving_average(ys, 120)
+moving_time = moving_average(times, 3)
+moving_mean = moving_average(means, 3)
 
-plt.plot(m20_xs, m20_ys)
+plt.title(f"Graph of 30 second moving average for {today}")
+plt.plot(moving_time, moving_mean)
 plt.xlabel("Time")
 plt.ylabel("Noise")
 plt.ylim(0, 1)
 plt.grid(True)
 
-plt.savefig(f"{PREFIX}/moving-20.png")
+plt.savefig(f"{PREFIX}/average-30.png")
+
+
+# create an empty file called finished so that the emailer
+# knows it is clear to send the email with all the images
+open(f"{PREFIX}/finished", "w").close()
